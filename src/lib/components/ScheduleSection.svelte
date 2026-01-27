@@ -12,17 +12,15 @@
 	/**
 	 * @type {{
 	 *   scheduleData: {
-	 *     nextUp: any;
-	 *     monthlyEvents: Array<{
-	 *       month: string;
-	 *       label: string;
-	 *       events: any[];
-	 *     }>;
+	 *     nextEvent: any;
+	 *     upcomingEvents: any[];
 	 *   };
 	 *   pastEventsByMonth: Array<any>;
 	 * }}
 	 */
 	let { scheduleData, pastEventsByMonth } = $props();
+
+	let showHistory = $state(false);
 
 	/**
 	 * @param {string} dateStr
@@ -63,95 +61,102 @@
 	}
 </script>
 
-<section id="schedule" class="py-24">
+<section id="schedule" class="py-32 relative overflow-hidden bg-white">
 	<div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-		<div class="mb-16 text-center relative">
+		<!-- Section Header -->
+		<div class="mb-24 text-center relative">
 			<span
-				class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[6rem] sm:text-[8rem] md:text-[10rem] font-bold text-gray-200/60 -z-10 select-none pointer-events-none leading-none tracking-tighter"
+				class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[6rem] sm:text-[9rem] md:text-[12rem] font-bold text-gray-50 -z-10 select-none pointer-events-none leading-none tracking-tighter"
 				style="font-family: 'Inter', sans-serif;">SCHEDULE</span
 			>
 			<h2
-				class="mb-4 text-4xl font-semibold tracking-tight md:text-5xl"
-				style="color: #1D1D1F;"
+				class="mb-6 text-4xl font-extrabold tracking-tight md:text-5xl"
+				style="font-family: 'Inter', sans-serif; font-weight: 800; color: #1A1A1A;"
 				in:fly={{ y: 30, duration: 600, easing: cubicOut }}
 			>
 				Schedule
 			</h2>
 			<p
-				class="text-lg relative z-10"
-				style="color: #6B6B6B;"
+				class="text-lg font-medium tracking-tight"
+				style="font-family: 'Inter', sans-serif; font-weight: 500; color: #86868B; letter-spacing: -0.02em;"
 				in:fly={{ y: 30, delay: 100, duration: 600, easing: cubicOut }}
 			>
 				今後の活動予定と記録
 			</p>
 		</div>
 
-		<div class="space-y-16">
-			<!-- 1. Next Up Section (Glassmorphism Hero) -->
-			{#if scheduleData.nextUp}
-				{@const event = scheduleData.nextUp}
+		<div class="space-y-20">
+			<!-- 1. Next Up Section (Prominent Card - Minimalist) -->
+			{#if scheduleData.nextEvent}
+				{@const event = scheduleData.nextEvent}
 				{@const daysUntil = getDaysUntil(event.date)}
 				<div class="space-y-6">
-					<h3 class="flex items-center gap-2 text-xl font-semibold text-gray-800 pl-4">
-						<Rocket class="h-5 w-5 text-blue-500" />
-						Next Up
+					<h3
+						class="text-sm font-black tracking-widest text-[#86868B] uppercase pl-4"
+						style="font-family: 'Inter', sans-serif; font-weight: 900; letter-spacing: 0.05em;"
+					>
+						NEXT EVENT
 					</h3>
 
 					<div
-						class="relative overflow-hidden rounded-[32px] p-8 transition-transform hover:scale-[1.01]"
-						style="background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);"
+						class="relative overflow-hidden rounded-[16px] border border-gray-100 bg-white p-8 md:p-12 shadow-[0_2px_40px_rgba(0,0,0,0.04)] transition-transform hover:translate-y-[-2px]"
 						in:fly={{ y: 30, duration: 600, easing: cubicOut }}
 					>
-						<!-- Background Gradient Decoration -->
-						<div
-							class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-100 opacity-40 blur-3xl"
-						></div>
-						<div
-							class="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-purple-100 opacity-40 blur-3xl"
-						></div>
-
-						<div class="relative z-10 flex flex-col md:flex-row md:items-center md:gap-12">
+						<div class="flex flex-col md:flex-row md:items-start md:gap-16">
 							<!-- Date & Count -->
-							<div class="flex shrink-0 flex-col items-center md:items-start">
-								<span class="text-sm font-medium uppercase tracking-wider text-gray-500">
+							<div class="flex shrink-0 flex-col items-center md:items-start pl-2">
+								<span class="text-sm font-medium uppercase tracking-wider text-[#86868B]">
 									{new Date(event.date).getFullYear()}
 								</span>
-								<div class="flex items-baseline gap-1">
-									<span class="text-5xl font-bold text-gray-900">
+								<div class="flex items-baseline gap-2 my-2">
+									<span
+										class="text-7xl font-black text-[#1A1A1A] tracking-tighter"
+										style="font-family: 'Inter', sans-serif; letter-spacing: -0.05em; line-height: 1;"
+									>
 										{new Date(event.date).getDate()}
 									</span>
-									<span class="text-xl font-medium text-gray-600">
+									<span
+										class="text-2xl font-bold text-[#86868B] uppercase tracking-tighter"
+										style="font-family: 'Inter', sans-serif;"
+									>
 										{new Date(event.date).toLocaleDateString('en-US', { month: 'short' })}
 									</span>
 								</div>
 								{#if daysUntil !== null && daysUntil >= 0}
 									<div
-										class="mt-2 rounded-full bg-blue-100/80 px-3 py-1 text-xs font-bold text-blue-600 backdrop-blur-sm"
+										class="mt-4 px-4 py-1.5 text-xs font-black tracking-widest uppercase border border-[#1A1A1A] text-[#1A1A1A] rounded-full"
+										style="font-family: 'Inter', sans-serif;"
 									>
 										{#if daysUntil === 0}
 											TODAY
 										{:else}
-											あと{daysUntil}日
+											IN {daysUntil} DAYS
 										{/if}
 									</div>
 								{/if}
 							</div>
 
 							<!-- Content -->
-							<div class="mt-6 flex-1 text-center md:mt-0 md:text-left">
-								<h4 class="mb-3 text-2xl font-bold text-gray-900">{event.title}</h4>
+							<div class="mt-8 flex-1 text-center md:mt-2 md:text-left">
+								<h4
+									class="mb-6 text-3xl md:text-5xl font-black text-[#1A1A1A] leading-tight tracking-tighter"
+									style="font-family: 'Inter', sans-serif; letter-spacing: -0.05em; line-height: 1.1;"
+								>
+									{event.title}
+								</h4>
 								<div
-									class="flex flex-wrap items-center justify-center gap-4 text-gray-600 md:justify-start"
+									class="flex flex-col gap-4 md:flex-row md:items-center md:flex-wrap text-[#86868B] text-sm"
 								>
 									{#if event.location}
-										<span class="flex items-center gap-1 text-sm">
-											<MapPin class="h-4 w-4 text-gray-400" />
+										<div class="flex items-center justify-center md:justify-start gap-2">
+											<MapPin class="h-4 w-4" />
 											{event.location}
-										</span>
+										</div>
 									{/if}
 									{#if event.description}
+										<div class="hidden md:block h-px w-8 bg-gray-200"></div>
 										<span
-											class="rounded-full border border-gray-200 bg-white/50 px-3 py-1 text-xs backdrop-blur-sm"
+											class="px-3 py-1 bg-gray-50 rounded text-[#1A1A1A] text-xs font-medium border border-gray-100"
 										>
 											{event.description}
 										</span>
@@ -161,85 +166,63 @@
 						</div>
 					</div>
 				</div>
+			{:else}
+				<div class="text-center py-20 border-y border-gray-50">
+					<p class="text-[#86868B]">No upcoming events scheduled.</p>
+				</div>
 			{/if}
 
-			<!-- 2. Future Plans (Timeline) -->
-			{#if scheduleData.monthlyEvents.length > 0}
-				<div class="relative space-y-8 pl-4 sm:pl-8">
-					<!-- Timeline Line -->
-					<div
-						class="absolute left-[1.65rem] top-4 bottom-12 w-[2px] rounded-full"
-						style="background: linear-gradient(to bottom, #93C5FD 0%, #C4B5FD 50%, #F9A8D4 100%); opacity: 0.6;"
-					></div>
+			<!-- 2. Upcoming Section (Future Plans List) -->
+			{#if scheduleData.upcomingEvents.length > 0}
+				<div class="space-y-8 opacity-100">
+					<h3
+						class="text-sm font-black tracking-widest text-[#1A1A1A] uppercase pl-4 border-l-[3px] border-[#1A1A1A]"
+						style="font-family: 'Inter', sans-serif; font-weight: 900;"
+					>
+						UPCOMING
+					</h3>
 
-					<div class="space-y-12">
-						{#each scheduleData.monthlyEvents as group}
-							<div class="relative">
-								<!-- Month Header Node -->
-								<div class="flex items-center gap-4 mb-6">
-									<div
-										class="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white shadow-md border border-white/50"
-										style="backdrop-filter: blur(8px);"
+					<div class="space-y-4 border-t border-gray-100 pt-8">
+						{#each scheduleData.upcomingEvents as event, i}
+							<div
+								class="group flex flex-col sm:flex-row items-baseline gap-6 py-6 px-6 bg-gray-50/50 hover:bg-gray-100/80 transition-all duration-300 rounded-[16px]"
+								in:fly={{ y: 20, delay: i * 50 + 200, duration: 500, easing: cubicOut }}
+							>
+								<!-- Status Dot & Date -->
+								<div class="flex items-baseline gap-4 w-48 shrink-0">
+									<span class="text-[#1A1A1A] text-[8px] relative -top-0.5 scale-125">●</span>
+									<span
+										class="text-xl font-bold text-[#1A1A1A] tracking-tighter"
+										style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em;"
 									>
-										<span class="text-xs font-bold text-gray-800">{group.label}</span>
-									</div>
-									<h3 class="text-lg font-bold text-gray-700 opacity-60">
-										{group.month.replace('-', '.')}
-									</h3>
+										{#if event.date}
+											{new Date(event.date).toLocaleDateString('en-US', {
+												year: 'numeric'
+											})}.{new Date(event.date).toLocaleDateString('en-US', {
+												month: '2-digit'
+											})}.{new Date(event.date).toLocaleDateString('en-US', { day: '2-digit' })}
+										{:else}
+											TBA
+										{/if}
+									</span>
 								</div>
 
-								<!-- Events -->
-								<div class="space-y-6 pl-[4.5rem]">
-									{#each group.events as event, i}
+								<!-- Title -->
+								<div class="flex-1">
+									<h4
+										class="text-2xl font-black text-[#1A1A1A] mb-2 group-hover:opacity-70 transition-opacity tracking-tight"
+										style="font-family: 'Inter', sans-serif; letter-spacing: -0.03em;"
+									>
+										{event.title}
+									</h4>
+									{#if event.description || event.location}
 										<div
-											class="relative group"
-											in:fly={{ y: 20, delay: i * 50, duration: 500, easing: cubicOut }}
+											class="flex gap-4 text-xs font-medium text-[#86868B] uppercase tracking-wide"
 										>
-											<!-- Timeline Connector -->
-											<div
-												class="absolute -left-[3.7rem] top-6 h-3 w-3 rounded-full border-2 border-white shadow-sm transition-transform group-hover:scale-125 {getStatusColor(
-													event.description
-												)}"
-											></div>
-
-											<div
-												class="overflow-hidden rounded-2xl p-6 transition-all hover:-translate-y-1 hover:shadow-lg"
-												style="background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5);"
-											>
-												<div class="flex items-start gap-4">
-													<div class="flex-1">
-														<div class="flex flex-wrap items-baseline justify-between gap-x-4">
-															<h5 class="text-lg font-bold text-gray-900 leading-tight">
-																{event.title}
-															</h5>
-															<span class="font-medium text-gray-500 text-sm">
-																{formatDate(event.date)}
-															</span>
-														</div>
-
-														{#if !event.description && !event.location}
-															<p class="mt-2 text-sm italic text-gray-400">Coming Soon...</p>
-														{:else}
-															<div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-500">
-																{#if event.location}
-																	<span class="flex items-center gap-1">
-																		<MapPin class="h-3 w-3" />
-																		{event.location}
-																	</span>
-																{/if}
-																{#if event.description}
-																	<span
-																		class="px-2 py-0.5 rounded-md bg-white/50 border border-black/5"
-																		>{event.description}</span
-																	>
-																{/if}
-															</div>
-														{/if}
-													</div>
-												</div>
-											</div>
+											{#if event.description}<span>{event.description}</span>{/if}
+											{#if event.location}<span>@ {event.location}</span>{/if}
 										</div>
-									{/each}
+									{/if}
 								</div>
 							</div>
 						{/each}
@@ -247,12 +230,28 @@
 				</div>
 			{/if}
 
-			<!-- 3. Past Events (Archive) -->
+			<!-- 3. History Section (Opacity 0.4) -->
 			<div
-				class="pt-12 border-t border-gray-200/50 opacity-60 hover:opacity-100 transition-opacity duration-500"
+				class="pt-16 border-t border-gray-100 opacity-40 hover:opacity-100 transition-opacity duration-500"
 			>
-				<h3 class="mb-8 text-center text-lg font-medium text-gray-500/80">Archive (History)</h3>
-				<ScheduleTimeline monthGroups={pastEventsByMonth} />
+				<div class="text-center mb-12">
+					<button
+						onclick={() => (showHistory = !showHistory)}
+						class="inline-flex items-center gap-3 px-8 py-3 rounded-full border border-gray-200 text-[#1A1A1A] font-bold text-sm hover:bg-gray-50 transition-colors bg-white tracking-wide"
+						style="font-family: 'Inter', sans-serif;"
+					>
+						<span>{showHistory ? 'Hide Past Activities' : 'Show Past Activities'}</span>
+						<ChevronDown
+							class="h-4 w-4 transition-transform duration-300 {showHistory ? 'rotate-180' : ''}"
+						/>
+					</button>
+				</div>
+
+				{#if showHistory}
+					<div in:fly={{ y: -20, duration: 400 }}>
+						<ScheduleTimeline monthGroups={pastEventsByMonth} />
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>

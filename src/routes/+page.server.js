@@ -17,7 +17,8 @@ export async function load() {
 
         console.log('[LOAD] Calling getFutureSchedule...');
         const scheduleData = await getFutureSchedule();
-        console.log('[LOAD] Schedule nextUp:', scheduleData.nextUp ? 'yes' : 'no');
+        console.log('[LOAD] Schedule nextEvent:', scheduleData.nextEvent ? 'yes' : 'no');
+        console.log('[LOAD] Schedule upcomingEvents:', scheduleData.upcomingEvents.length);
 
         console.log('[LOAD] Calling getPastEventsByMonth...');
         const pastEventsByMonth = await getPastEventsByMonth();
@@ -39,7 +40,7 @@ export async function load() {
         return {
             news: [],
             projects: [],
-            scheduleData: { nextUp: null, monthlyEvents: [] },
+            scheduleData: { nextEvent: null, upcomingEvents: [] },
             pastEventsByMonth: []
         };
     }

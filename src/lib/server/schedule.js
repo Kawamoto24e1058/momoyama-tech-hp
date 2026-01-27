@@ -20,12 +20,18 @@ import { notion, DATABASE_IDS, extractPlainText } from './notion.js';
  */
 
 /**
- * Get all future events grouped by split (Next Upcoming + Rest grouped by month)
- * @returns {Promise<{nextUp: ScheduleEvent|null, monthlyEvents: MonthGroup[]}>}
+ * Get all future events grouped by split (Next Event + Upcoming Events)
+ * @returns {Promise<{nextEvent: ScheduleEvent|null, upcomingEvents: ScheduleEvent[]}>}
  */
 export async function getFutureSchedule() {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // 1. Define today (Start of day in local time)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Notion query date string (UTC based for query optimization, but we'll filter strictly in JS)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const fiscalYearEnd = '2026-03-31';
 
         let response;
         try {
@@ -42,7 +48,13 @@ export async function getFutureSchedule() {
                         {
                             property: '日付',
                             date: {
-                                on_or_after: today
+                                on_or_after: todayStr // Query broad range
+                            }
+                        },
+                        {
+                            property: '日付',
+                            date: {
+                                on_or_before: fiscalYearEnd
                             }
                         }
                     ]
@@ -56,54 +68,41 @@ export async function getFutureSchedule() {
                 page_size: 100
             });
         } catch {
-            response = await notion.databases.query({
-                database_id: DATABASE_IDS.SCHEDULE,
-                filter: {
-                    property: '日付',
-                    date: {
-                        on_or_after: today
-                    }
-                },
-                sorts: [
-                    {
-                        property: '日付',
-                        direction: 'ascending'
-                    }
-                ],
-                page_size: 100
-            });
+            // Fallback or retry logic if needed
+            return { nextEvent: null, upcomingEvents: [] };
         }
 
-        const now = new Date();
-        const events = response.results.map((page) => parseScheduleEvent(page, now));
+        const now = new Date(); // Current time for parsing status if needed
+        const allEvents = response.results.map((page) => parseScheduleEvent(page, now));
 
-        const nextUp = events[0] || null;
-        const rest = events.slice(1);
+        // 2. Strict Sort
+        const sortedEvents = allEvents.sort((a, b) => {
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return a.date.localeCompare(b.date);
+        });
 
-        // Group rest by month
-        const grouped = new Map();
-        for (const event of rest) {
-            if (!event.date) continue;
-            const monthKey = event.date.substring(0, 7); // YYYY-MM
-            if (!grouped.has(monthKey)) {
-                const date = new Date(event.date);
-                grouped.set(monthKey, {
-                    month: monthKey,
-                    // Use Japanese month format: 2026.02
-                    label: date.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' }).replace(/\//g, '.'),
-                    events: []
-                });
-            }
-            grouped.get(monthKey).events.push(event);
-        }
+        // 3. Strict Filter based on "Today" logic
+        // Events that are strictly before today are past.
+        // Events that are today or later are future/next.
+        const futureEvents = sortedEvents.filter(e => {
+            if (!e.date) return false;
+            const eventDate = new Date(e.date);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate.getTime() >= today.getTime();
+        });
+
+        // 4. Split
+        const nextEvent = futureEvents[0] || null;
+        const upcomingEvents = futureEvents.slice(1);
 
         return {
-            nextUp,
-            monthlyEvents: Array.from(grouped.values())
+            nextEvent,
+            upcomingEvents
         };
     } catch (error) {
         console.error('Error fetching future schedule:', error);
-        return { nextUp: null, monthlyEvents: [] };
+        return { nextEvent: null, upcomingEvents: [] };
     }
 }
 

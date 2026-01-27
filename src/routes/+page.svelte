@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { cubicOut, quintOut } from 'svelte/easing';
@@ -15,6 +16,15 @@
 	import { reveal } from '$lib/actions/reveal.js';
 
 	let { data } = $props();
+
+	// Typing animation state
+	let typedLines = $state(/** @type {string[]} */ ([]));
+	let showJapanese = $state(/** @type {boolean[]} */ ([]));
+	let isTypingComplete = $state(false);
+	let cursorPosition = $state(
+		/** @type {{line: number, visible: boolean}} */ ({ line: -1, visible: false })
+	);
+	let isTyping = $state(false);
 
 	let selectedCategory = $state('All');
 
@@ -100,6 +110,86 @@
 		{ en: 'Innovate boldly.', ja: '革新的な未来へ' },
 		{ en: 'Question constantly.', ja: '常に懐疑的な視点を忘れない' }
 	];
+
+	// Typing animation - runs on mount
+	onMount(() => {
+		const baseTypeSpeed = 40; // base milliseconds per character (2x faster)
+		const randomVariation = 30; // random variation range
+		const punctuationPause = 200; // pause after punctuation (sharper tempo)
+		const lineDelay = 300; // delay before starting next line
+		const japaneseFadeDelay = 100; // delay before fading in Japanese (faster)
+		const cursorBlinkSpeed = 530; // cursor blink interval
+
+		/**
+		 * @param {number} lineIndex
+		 */
+		function typeLine(lineIndex) {
+			if (lineIndex >= heroLines.length) {
+				// All lines complete - blink cursor a few times then hide
+				isTyping = false;
+				cursorPosition = { line: heroLines.length - 1, visible: true };
+				setTimeout(() => {
+					isTypingComplete = true;
+					cursorPosition = { line: -1, visible: false };
+				}, 2500); // blink for 2.5 seconds then hide
+				return;
+			}
+
+			const text = heroLines[lineIndex].en;
+			let charIndex = 0;
+
+			// Show cursor at current line and start typing
+			isTyping = true;
+			cursorPosition = { line: lineIndex, visible: true };
+
+			function typeChar() {
+				if (charIndex <= text.length) {
+					typedLines[lineIndex] = text.substring(0, charIndex);
+
+					// Calculate delay with randomness
+					let delay = baseTypeSpeed + Math.random() * randomVariation;
+
+					// Add pause after punctuation
+					const lastChar = text[charIndex - 1];
+					if (lastChar && /[.,!?;:]/.test(lastChar)) {
+						delay += punctuationPause;
+					}
+
+					charIndex++;
+					setTimeout(typeChar, delay);
+				} else {
+					// Line complete - pause, then show Japanese
+					isTyping = false;
+					setTimeout(() => {
+						showJapanese[lineIndex] = true;
+						// Start next line
+						setTimeout(() => {
+							typeLine(lineIndex + 1);
+						}, lineDelay);
+					}, japaneseFadeDelay);
+				}
+			}
+
+			typeChar();
+		}
+
+		// Cursor blink effect
+		const blinkInterval = setInterval(() => {
+			if (!isTyping && cursorPosition.line >= 0) {
+				cursorPosition = { ...cursorPosition, visible: !cursorPosition.visible };
+			}
+		}, cursorBlinkSpeed);
+
+		// Initialize arrays
+		typedLines = new Array(heroLines.length).fill('');
+		showJapanese = new Array(heroLines.length).fill(false);
+
+		// Start typing
+		typeLine(0);
+
+		// Cleanup
+		return () => clearInterval(blinkInterval);
+	});
 </script>
 
 <svelte:head>
@@ -134,40 +224,45 @@
 <!-- Hero Section -->
 <section class="hero-section relative min-h-screen w-full overflow-hidden">
 	<div
-		class="relative z-10 w-full h-full max-w-[1600px] mx-auto min-h-screen flex flex-col justify-center pt-24 pb-12 px-6 md:px-12 lg:px-20"
+		class="relative z-10 w-full h-full mx-auto min-h-screen flex flex-col justify-center py-32 px-6 md:px-12 lg:px-20"
 	>
-		<!-- Desktop: Flex Row (7:3) / Mobile: Flex Column -->
-		<div class="flex flex-col md:flex-row items-end w-full gap-12 md:gap-0">
-			<!-- Left: English (70%) -->
-			<div class="w-full md:w-[70%] flex flex-col gap-0 md:gap-0">
-				{#each heroLines as line, i}
-					<div
-						class="overflow-hidden"
-						in:fly={{ y: 50, delay: i * 100, duration: 1000, easing: quintOut }}
-					>
-						<span
-							class="block font-inter text-[#111] leading-[0.9] tracking-tighter break-words"
-							style="font-size: clamp(3rem, 10vw, 7.5rem); font-weight: {900 -
-								i * 100}; letter-spacing: -0.05em;"
-						>
-							{line.en}
-						</span>
-					</div>
-				{/each}
-			</div>
+		<!-- Content Container with Max Width -->
+		<div class="w-full max-w-[1200px] mx-auto">
+			<!-- Desktop: Flex Row (7:3) / Mobile: Flex Column -->
+			<div class="flex flex-col md:flex-row items-end w-full gap-12 md:gap-0">
+				<!-- Left: English (70%) -->
+				<div class="w-full md:w-[70%] flex flex-col gap-1 md:gap-1">
+					{#each heroLines as line, i}
+						<div class="overflow-hidden" style="min-height: clamp(2rem, 6vw, 4.5rem);">
+							<span
+								class="block text-black leading-[1.1] tracking-tighter break-words antialiased"
+								style="font-family: 'Inter', sans-serif; font-size: clamp(2rem, 6vw, 4.5rem); font-weight: 800; letter-spacing: -0.05em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;"
+							>
+								{typedLines[i] || ''}{#if cursorPosition.line === i && cursorPosition.visible}<span
+										style="color: #000000; font-weight: 800; margin-left: 4px; display: inline-block; width: 4px;"
+										>|</span
+									>{/if}
+							</span>
+						</div>
+					{/each}
+				</div>
 
-			<!-- Right: Japanese (30% - Bottom Aligned) -->
-			<div class="w-full md:w-[30%] flex flex-col gap-4 md:gap-6 text-right pb-1 md:pb-2">
-				{#each heroLines as line, i}
-					<div in:fade={{ delay: 1000 + i * 100, duration: 1500 }} class="flex justify-end">
-						<span
-							class="block text-[#555] whitespace-nowrap leading-loose"
-							style="font-family: 'Shippori Mincho', serif; letter-spacing: 0.1em; font-size: clamp(1rem, 1.25vw, 1.5rem); word-break: keep-all;"
-						>
-							{line.ja}
-						</span>
-					</div>
-				{/each}
+				<!-- Right: Japanese (30% - Bottom Aligned) -->
+				<div class="w-full md:w-[30%] flex flex-col gap-4 md:gap-5 text-right pb-1 md:pb-2">
+					{#each heroLines as line, i}
+						<div class="flex justify-end" style="min-height: clamp(0.875rem, 1.1vw, 1.25rem);">
+							{#if showJapanese[i]}
+								<span
+									class="block text-[#555] whitespace-nowrap leading-loose"
+									style="font-family: 'Shippori Mincho', serif; letter-spacing: 0.1em; font-size: clamp(0.875rem, 1.1vw, 1.25rem); word-break: keep-all;"
+									in:fade={{ duration: 800 }}
+								>
+									{line.ja}
+								</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>
