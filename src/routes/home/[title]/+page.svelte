@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import XIcon from 'lucide-svelte/icons/x';
 	import Skeleton from '$lib/components/Skeleton.svelte';
+	import { language } from '$lib/stores/language.svelte.js';
+	import { translationStore } from '$lib/stores/translation.svelte.js';
 
 	let { data }: { data: any } = $props();
 
@@ -22,8 +24,53 @@
 		}
 	});
 
-	// Check if we have pre-fetched content
-	const hasContent = $derived(!!data.article?.content);
+	let displayArticle = $state(data.article);
+	let isTranslating = $state(false);
+
+	$effect(() => {
+		async function updateTranslation() {
+			if (language.current === 'EN' && data.article) {
+				isTranslating = true;
+				try {
+					const tTitle = await translationStore.get(data.article.title);
+
+					const tContentPromises = (data.article.content || []).map(async (block: any) => {
+						if (!block) return block;
+						// Translate text properties for paragraphs and headings
+						if (block.text && (block.type === 'paragraph' || block.type.startsWith('heading'))) {
+							const tText = await translationStore.get(block.text);
+							return { ...block, text: tText };
+						}
+						return block;
+					});
+
+					const tContent = await Promise.all(tContentPromises);
+
+					displayArticle = {
+						...data.article,
+						title: tTitle,
+						content: tContent
+					};
+				} catch (e) {
+					console.error('Translation failed', e);
+					displayArticle = data.article;
+				} finally {
+					isTranslating = false;
+				}
+			} else {
+				displayArticle = data.article;
+			}
+		}
+
+		// If data.article changes (e.g. navigation), reset and translate
+		if (data.article) {
+			// If we switched articles, we might want to start with original while translating or loading
+		}
+		updateTranslation();
+	});
+
+	// Check if we have content to show (either original or translated)
+	const hasContent = $derived(!!displayArticle?.content && !isTranslating);
 </script>
 
 <div
@@ -74,9 +121,9 @@
 						>
 							News
 						</span>
-						{#if data.article?.date}
+						{#if displayArticle?.date}
 							<time class="text-sm font-semibold tracking-tight text-gray-400">
-								{new Date(data.article.date).toLocaleDateString('ja-JP', {
+								{new Date(displayArticle.date).toLocaleDateString('ja-JP', {
 									year: 'numeric',
 									month: 'long',
 									day: 'numeric'
@@ -87,13 +134,13 @@
 						{/if}
 					</div>
 
-					{#if data.article?.title}
+					{#if displayArticle?.title && !isTranslating}
 						<h1
 							id="modal-title"
 							class="text-4xl font-black leading-[1.15] tracking-tight text-gray-900 sm:text-6xl dark:text-white"
 							style="font-family: 'Inter', sans-serif;"
 						>
-							{data.article.title}
+							{displayArticle.title}
 						</h1>
 					{:else}
 						<Skeleton height="h-12" width="w-3/4" />
@@ -105,7 +152,7 @@
 					class="prose prose-lg max-w-none prose-headings:font-black prose-headings:tracking-tight dark:prose-invert"
 				>
 					{#if hasContent}
-						{#each data.article.content as block}
+						{#each displayArticle.content as block}
 							{#if block}
 								{#if block.type === 'paragraph'}
 									<p class="mb-8 leading-[1.8] text-gray-700 dark:text-gray-300">

@@ -125,10 +125,14 @@
 	// Category & News Logic
 	let selectedCategory = $state('All');
 
+	/** @type {any[]} */
+	let displayProjects = $state([]);
+	let displayScheduleData = $state(data.scheduleData);
+
 	const filteredProjects = $derived(
 		selectedCategory === 'All'
-			? data.projects
-			: data.projects.filter((p) => p.category === selectedCategory)
+			? displayProjects
+			: displayProjects.filter((p) => p.category === selectedCategory)
 	);
 
 	const categories = $derived([...new Set(data.projects.map((p) => p.category).filter(Boolean))]);
@@ -158,6 +162,88 @@
 
 	let scrollY = $state(0);
 	let t = $derived(translations[/** @type {'JP'|'EN'} */ (language.current)]);
+
+	// Translation Logic for News List
+	import { translationStore } from '$lib/stores/translation.svelte.js';
+
+	/** @type {any[]} */
+	let translatedNews = $state([]);
+
+	$effect(() => {
+		async function updateTranslations() {
+			if (language.current === 'EN') {
+				// News Translation
+				const newsPromise = Promise.all(
+					data.news.map(async (item) => {
+						const translatedTitle = await translationStore.get(item.title);
+						return { ...item, title: translatedTitle };
+					})
+				);
+
+				// Projects Translation
+				const projectsPromise = Promise.all(
+					data.projects.map(async (item) => {
+						const [tTitle, tDesc] = await Promise.all([
+							translationStore.get(item.title),
+							translationStore.get(item.description)
+						]);
+						return { ...item, title: tTitle, description: tDesc };
+					})
+				);
+
+				// Schedule Data Translation (Next & Upcoming)
+				const translateEvent = async (event) => {
+					if (!event) return null;
+					const [tName, tLocation, tRemarks] = await Promise.all([
+						translationStore.get(event.title || event.name),
+						translationStore.get(event.location),
+						event.remarks ? translationStore.get(event.remarks) : null
+					]);
+					return {
+						...event,
+						title: tName,
+						location: tLocation,
+						remarks: tRemarks || event.remarks
+					};
+				};
+
+				const nextEventPr = translateEvent(data.scheduleData.nextEvent);
+				const upcomingPr = Promise.all(data.scheduleData.upcomingEvents.map(translateEvent));
+
+				const [newsRes, projectsRes, nextEventRes, upcomingRes] = await Promise.all([
+					newsPromise,
+					projectsPromise,
+					nextEventPr,
+					upcomingPr
+				]);
+
+				translatedNews = newsRes;
+				displayProjects = projectsRes;
+				displayScheduleData = {
+					...data.scheduleData,
+					nextEvent: nextEventRes,
+					upcomingEvents: upcomingRes
+				};
+			} else {
+				translatedNews = data.news;
+				displayProjects = data.projects;
+				displayScheduleData = data.scheduleData;
+			}
+		}
+
+		// Initial/Reset
+		if (language.current !== 'EN') {
+			translatedNews = data.news;
+			displayProjects = data.projects;
+			displayScheduleData = data.scheduleData;
+		}
+
+		updateTranslations();
+	});
+
+	let displayNews = $derived(
+		language.current === 'EN' && translatedNews.length > 0 ? translatedNews : data.news
+	);
 </script>
 
 <svelte:window onmousemove={handleMouseMove} bind:scrollY />
@@ -311,7 +397,7 @@
 		</div>
 
 		<div class="grid gap-8 md:grid-cols-2">
-			{#each data.news as item, i}
+			{#each displayNews as item, i}
 				<button
 					type="button"
 					class="news-card group relative flex w-full flex-col overflow-hidden rounded-3xl text-left transition-all duration-500 hover:-translate-y-2 focus:outline-none focus:ring-4 focus:ring-gray-100"
@@ -371,7 +457,7 @@
 
 <!-- Schedule Section -->
 <div id="schedule" class="relative py-24 z-10 -mt-24 pt-48" style="scroll-margin-top: 100px;">
-	<ScheduleSection scheduleData={data.scheduleData} pastEventsByMonth={data.pastEventsByMonth} />
+	<ScheduleSection scheduleData={displayScheduleData} pastEventsByMonth={data.pastEventsByMonth} />
 </div>
 
 <!-- Modal Insertion -->

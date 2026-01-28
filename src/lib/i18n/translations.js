@@ -57,6 +57,10 @@ export const translations = {
             empty: "ニュースはまだありません",
             seeAll: "すべての記事を見る",
             openNotion: "Notionで開く"
+        },
+        focus: {
+            title: "Areas of Focus",
+            subtitle: "私たちが情熱を注ぐ3つの専門領域"
         }
     },
     EN: {
@@ -97,7 +101,7 @@ export const translations = {
             desc: "Momoyama Tech Club is a community for students to learn, share, and create with technology.",
             content: "CONTENT",
             links: "LINKS",
-            official: "Momoyama Gakuin University",
+            official: "St. Andrew's University Official",
             contactTitle: "Contact",
             emailLabel: "Email Us",
             copySuccess: "Email address copied"
@@ -117,6 +121,10 @@ export const translations = {
             empty: "No news articles found.",
             seeAll: "See all articles",
             openNotion: "Open in Notion"
+        },
+        focus: {
+            title: "Areas of Focus",
+            subtitle: "Three specialized areas we are passionate about"
         }
     }
 };
