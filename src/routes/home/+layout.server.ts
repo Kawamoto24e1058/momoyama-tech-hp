@@ -3,6 +3,12 @@ import { getProjects } from '$lib/server/projects.js';
 import { getFutureSchedule, getPastEventsByMonth } from '$lib/server/schedule.js';
 import { notion, extractPlainText, extractFileUrl } from '$lib/server/notion.js';
 
+export const config = {
+    isr: {
+        expiration: 60
+    }
+};
+
 /** @type {import('./$types').LayoutServerLoad} */
 export async function load({ setHeaders }) {
     console.log('[HOME LOAD] Starting optimized parallel data fetch...');

@@ -10,6 +10,7 @@
 	import Instagram from 'lucide-svelte/icons/instagram';
 	import Mail from 'lucide-svelte/icons/mail';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import ContactModal from '$lib/components/ContactModal.svelte';
 
 	let { children } = $props();
 
@@ -43,19 +44,8 @@
 		{ href: '#schedule', label: t.nav.schedule }
 	]);
 
+	let showContactModal = $state(false);
 	let showToast = $state(false);
-
-	async function copyEmailAddress() {
-		try {
-			await navigator.clipboard.writeText('tech@andrew.ac.jp');
-			showToast = true;
-			setTimeout(() => {
-				showToast = false;
-			}, 3000);
-		} catch (err) {
-			console.error('Failed to copy: ', err);
-		}
-	}
 </script>
 
 <svelte:head>
@@ -278,8 +268,8 @@
 		<div
 			class="mt-12 w-full rounded-2xl bg-[#F5F5F7] p-8 dark:bg-zinc-900 border border-black/5 dark:border-white/10"
 		>
-			<div class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
-				<div>
+			<div class="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:justify-between">
+				<div class="text-center sm:text-left">
 					<h4 class="mb-1 text-xs font-bold uppercase tracking-wider text-gray-400">
 						{t.footer.contactTitle}
 					</h4>
@@ -291,30 +281,28 @@
 					</p>
 				</div>
 
-				<div class="flex flex-wrap items-center gap-3">
+				<div class="flex items-center gap-6">
 					<a
 						href="https://www.instagram.com/momoyama_tech/"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="group flex h-11 items-center justify-center gap-3 rounded-xl bg-white px-5 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md dark:bg-black"
+						title="Instagram"
+						class="group flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-pink-500/20 dark:bg-zinc-800 dark:hover:bg-[#E1306C]"
 					>
 						<Instagram
-							class="h-5 w-5 text-gray-900 transition-colors group-hover:text-[#E1306C] dark:text-white"
+							class="h-7 w-7 text-gray-900 transition-colors duration-300 group-hover:text-[#E1306C] dark:text-white dark:group-hover:text-white"
 						/>
-						<span
-							class="text-sm font-bold text-gray-900 dark:text-white"
-							style="font-family: 'Inter', sans-serif;">Instagram</span
-						>
 					</a>
 
 					<a
 						href="https://x.com/momoyama_tech"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="group flex h-11 items-center justify-center gap-3 rounded-xl bg-white px-5 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md dark:bg-black"
+						title="X"
+						class="group flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/20 dark:bg-zinc-800 dark:hover:bg-white dark:hover:text-black"
 					>
 						<svg
-							class="h-5 w-5 text-gray-900 transition-colors group-hover:text-black dark:text-white dark:group-hover:text-white"
+							class="h-7 w-7 text-gray-900 transition-colors duration-300 group-hover:text-black dark:text-white dark:group-hover:text-black"
 							viewBox="0 0 24 24"
 							fill="currentColor"
 						>
@@ -322,42 +310,40 @@
 								d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"
 							/>
 						</svg>
-						<span
-							class="text-sm font-bold text-gray-900 dark:text-white"
-							style="font-family: 'Inter', sans-serif;">X</span
-						>
 					</a>
 
-					<div class="flex flex-col items-center gap-2">
-						<button
-							onclick={copyEmailAddress}
-							title="Click to Copy: tech@andrew.ac.jp"
-							class="group flex h-11 items-center justify-center gap-3 rounded-xl bg-black px-6 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-pointer dark:bg-white"
-						>
-							<Mail
-								class="h-5 w-5 text-white transition-opacity group-hover:opacity-80 dark:text-black"
-							/>
-							<span
-								class="text-sm font-bold text-white dark:text-black"
-								style="font-family: 'Inter', sans-serif;">{t.footer.emailLabel}</span
-							>
-						</button>
-						<span class="text-[10px] text-gray-400 font-medium tracking-tight"
-							>tech@andrew.ac.jp</span
-						>
-					</div>
+					<button
+						onclick={() => (showContactModal = true)}
+						title={t.footer.contact}
+						class="group flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/20 cursor-pointer dark:bg-zinc-800 dark:hover:bg-blue-600"
+					>
+						<Mail
+							class="h-7 w-7 text-gray-900 transition-colors duration-300 group-hover:text-blue-600 dark:text-white dark:group-hover:text-white"
+						/>
+					</button>
 				</div>
 			</div>
+
+			<ContactModal
+				isOpen={showContactModal}
+				onClose={() => (showContactModal = false)}
+				onSuccess={() => {
+					showToast = true;
+					setTimeout(() => {
+						showToast = false;
+					}, 5000);
+				}}
+			/>
 
 			{#if showToast}
 				<div
 					transition:fade={{ duration: 200 }}
-					class="fixed bottom-12 left-1/2 z-[100] -translate-x-1/2"
+					class="fixed bottom-12 left-1/2 z-[100] -translate-x-1/2 w-[90%] max-w-md text-center"
 				>
 					<div
-						class="rounded-full bg-black/90 px-6 py-2.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm dark:bg-white/90 dark:text-black"
+						class="rounded-2xl bg-black/90 px-6 py-4 text-sm font-medium text-white shadow-xl backdrop-blur-md dark:bg-white/90 dark:text-black"
 					>
-						{t.footer.copySuccess}
+						お問い合わせありがとうございます。<br />内容を確認次第ご連絡いたします。
 					</div>
 				</div>
 			{/if}

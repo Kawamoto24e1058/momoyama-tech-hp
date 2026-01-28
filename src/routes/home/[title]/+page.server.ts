@@ -2,6 +2,12 @@ import { notion, DATABASE_IDS, extractPlainText, extractFileUrl } from '$lib/ser
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
+export const config = {
+    isr: {
+        expiration: 60
+    }
+};
+
 export const load: PageServerLoad = async ({ params, setHeaders }) => {
     const { title } = params;
 
