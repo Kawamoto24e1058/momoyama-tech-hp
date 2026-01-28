@@ -1,5 +1,7 @@
 <script>
-	import { onMount } from 'svelte';
+	import { language } from '$lib/stores/language.svelte.js';
+	import { translations } from '$lib/i18n/translations.js';
+	import { onMount, onDestroy } from 'svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { cubicOut, quintOut } from 'svelte/easing';
@@ -17,15 +19,122 @@
 
 	let { data } = $props();
 
-	// Typing animation state
-	let typedLines = $state(/** @type {string[]} */ ([]));
-	let showJapanese = $state(/** @type {boolean[]} */ ([]));
-	let isTypingComplete = $state(false);
-	let cursorPosition = $state(
-		/** @type {{line: number, visible: boolean}} */ ({ line: -1, visible: false })
-	);
-	let isTyping = $state(false);
+	// Fixed Hero Text
+	const heroTextEN = [
+		'Think rationally.',
+		'Act for others.',
+		'Explore thoroughly.',
+		'Innovate boldly.',
+		'Question constantly.'
+	];
+	const heroTextJP = [
+		'合理的な判断で',
+		'利他的な技術を',
+		'徹底的な探究から',
+		'革新的な未来へ',
+		'常に懐疑的な視点を忘れない'
+	];
 
+	// Typing animation state
+	let typedLines = $state(heroTextEN.map(() => ''));
+	let showJapaneseLines = $state(new Array(heroTextJP.length).fill(false));
+	let cursorPosition = $state({ line: 0, visible: true });
+	let isTyping = $state(true);
+
+	// Typing animation initialization
+	/** @type {NodeJS.Timeout} */
+	let typingInterval;
+	/** @type {NodeJS.Timeout} */
+	let blinkInterval;
+
+	onMount(() => {
+		// Start Animation Sequence
+		const TYPE_SPEED = 35; // Slight adjustment for rhythm
+		const TYPE_VARIANCE = 15;
+		const COMMA_PAUSE = 100;
+		const LINE_NEXT_DELAY = 100; // Delay before starting next line after fade trigger
+		const LAST_LINE_DELAY = 1000; // Delay after last line before cursor hide
+		const CURSOR_BLINK_SPEED = 530;
+
+		let lineIdx = 0;
+		let charIdx = 0;
+
+		function loop() {
+			if (lineIdx >= heroTextEN.length) {
+				// All Typing Complete
+				isTyping = false;
+
+				// Blink cursor at the end of the last line
+				cursorPosition = { line: heroTextEN.length - 1, visible: true };
+				let count = 0;
+				blinkInterval = setInterval(() => {
+					cursorPosition = { ...cursorPosition, visible: !cursorPosition.visible };
+					count++;
+					if (count > 6) {
+						// Blink a few times
+						clearInterval(blinkInterval);
+						cursorPosition = { ...cursorPosition, visible: false };
+					}
+				}, CURSOR_BLINK_SPEED);
+				return;
+			}
+
+			const targetLine = heroTextEN[lineIdx];
+
+			if (charIdx <= targetLine.length) {
+				// Typing current line
+				typedLines[lineIdx] = targetLine.substring(0, charIdx);
+				cursorPosition = { line: lineIdx, visible: true };
+
+				let delay = TYPE_SPEED + Math.random() * TYPE_VARIANCE;
+				const char = targetLine[charIdx - 1];
+				if (char && /[.,!?;:]/.test(char)) {
+					delay += COMMA_PAUSE;
+				}
+
+				charIdx++;
+				typingInterval = setTimeout(loop, delay);
+			} else {
+				// Line Complete
+
+				// 1. Show Japanese for this line immediately
+				showJapaneseLines[lineIdx] = true;
+
+				// 2. Prepare for next line
+				const isLastLine = lineIdx === heroTextEN.length - 1;
+				const nextDelay = isLastLine ? LAST_LINE_DELAY : LINE_NEXT_DELAY;
+
+				if (isLastLine) {
+					// Finish up
+					lineIdx++;
+					typingInterval = setTimeout(loop, nextDelay);
+				} else {
+					// Wait a bit then start next line
+					setTimeout(() => {
+						lineIdx++;
+						charIdx = 0;
+						loop();
+					}, 300); // 0.3s delay as requested
+				}
+			}
+		}
+
+		// Initial start delay
+		setTimeout(loop, 500);
+
+		return () => {
+			if (typingInterval) clearTimeout(typingInterval);
+			if (blinkInterval) clearInterval(blinkInterval);
+		};
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		if (typingInterval) clearTimeout(typingInterval);
+		if (blinkInterval) clearInterval(blinkInterval);
+	});
+
+	// Category & News Logic
 	let selectedCategory = $state('All');
 
 	const filteredProjects = $derived(
@@ -37,9 +146,7 @@
 	// Get unique categories from projects
 	const categories = $derived([...new Set(data.projects.map((p) => p.category).filter(Boolean))]);
 
-	/**
-	 * @param {string} category
-	 */
+	/** @param {string} category */
 	function handleCategorySelect(category) {
 		selectedCategory = category;
 	}
@@ -49,17 +156,12 @@
 	let newsContent = $state('');
 	let isLoadingContent = $state(false);
 
-	/**
-	 * @param {any} item
-	 */
+	/** @param {any} item */
 	async function openNews(item) {
 		selectedNews = item;
 		newsContent = '';
 		isLoadingContent = true;
-
-		if (typeof document !== 'undefined') {
-			document.body.style.overflow = 'hidden';
-		}
+		if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
 
 		try {
 			const res = await fetch(`/api/news/${item.id}`);
@@ -74,14 +176,10 @@
 
 	function closeNews() {
 		selectedNews = null;
-		if (typeof document !== 'undefined') {
-			document.body.style.overflow = '';
-		}
+		if (typeof document !== 'undefined') document.body.style.overflow = '';
 	}
 
-	/**
-	 * @param {any} e
-	 */
+	/** @param {any} e */
 	function handleImageError(e) {
 		e.currentTarget.style.display = 'none';
 	}
@@ -97,99 +195,10 @@
 	let scrollY = $state(0);
 
 	// Parallax helper
-	/**
-	 * @param {number} y
-	 * @param {number} speed
-	 */
+	/** @param {number} y; @param {number} speed */
 	const parallax = (y, speed) => y * speed;
 
-	const heroLines = [
-		{ en: 'Think rationally.', ja: '合理的な判断で' },
-		{ en: 'Act for others.', ja: '利他的な技術を' },
-		{ en: 'Explore thoroughly.', ja: '徹底的な探究から' },
-		{ en: 'Innovate boldly.', ja: '革新的な未来へ' },
-		{ en: 'Question constantly.', ja: '常に懐疑的な視点を忘れない' }
-	];
-
-	// Typing animation - runs on mount
-	onMount(() => {
-		const baseTypeSpeed = 40; // base milliseconds per character (2x faster)
-		const randomVariation = 30; // random variation range
-		const punctuationPause = 200; // pause after punctuation (sharper tempo)
-		const lineDelay = 300; // delay before starting next line
-		const japaneseFadeDelay = 100; // delay before fading in Japanese (faster)
-		const cursorBlinkSpeed = 530; // cursor blink interval
-
-		/**
-		 * @param {number} lineIndex
-		 */
-		function typeLine(lineIndex) {
-			if (lineIndex >= heroLines.length) {
-				// All lines complete - blink cursor a few times then hide
-				isTyping = false;
-				cursorPosition = { line: heroLines.length - 1, visible: true };
-				setTimeout(() => {
-					isTypingComplete = true;
-					cursorPosition = { line: -1, visible: false };
-				}, 2500); // blink for 2.5 seconds then hide
-				return;
-			}
-
-			const text = heroLines[lineIndex].en;
-			let charIndex = 0;
-
-			// Show cursor at current line and start typing
-			isTyping = true;
-			cursorPosition = { line: lineIndex, visible: true };
-
-			function typeChar() {
-				if (charIndex <= text.length) {
-					typedLines[lineIndex] = text.substring(0, charIndex);
-
-					// Calculate delay with randomness
-					let delay = baseTypeSpeed + Math.random() * randomVariation;
-
-					// Add pause after punctuation
-					const lastChar = text[charIndex - 1];
-					if (lastChar && /[.,!?;:]/.test(lastChar)) {
-						delay += punctuationPause;
-					}
-
-					charIndex++;
-					setTimeout(typeChar, delay);
-				} else {
-					// Line complete - pause, then show Japanese
-					isTyping = false;
-					setTimeout(() => {
-						showJapanese[lineIndex] = true;
-						// Start next line
-						setTimeout(() => {
-							typeLine(lineIndex + 1);
-						}, lineDelay);
-					}, japaneseFadeDelay);
-				}
-			}
-
-			typeChar();
-		}
-
-		// Cursor blink effect
-		const blinkInterval = setInterval(() => {
-			if (!isTyping && cursorPosition.line >= 0) {
-				cursorPosition = { ...cursorPosition, visible: !cursorPosition.visible };
-			}
-		}, cursorBlinkSpeed);
-
-		// Initialize arrays
-		typedLines = new Array(heroLines.length).fill('');
-		showJapanese = new Array(heroLines.length).fill(false);
-
-		// Start typing
-		typeLine(0);
-
-		// Cleanup
-		return () => clearInterval(blinkInterval);
-	});
+	let t = $derived(translations[/** @type {'JP'|'EN'} */ (language.current)]);
 </script>
 
 <svelte:head>
@@ -219,9 +228,6 @@
 </div>
 
 <!-- Hero Section -->
-<!-- Hero Section -->
-<!-- Hero Section -->
-<!-- Hero Section -->
 <section class="hero-section relative min-h-screen w-full overflow-hidden">
 	<div
 		class="relative z-10 w-full h-full mx-auto min-h-screen flex flex-col justify-center py-32 px-6 md:px-12 lg:px-20"
@@ -230,9 +236,9 @@
 		<div class="w-full max-w-[1200px] mx-auto">
 			<!-- Desktop: Flex Row (7:3) / Mobile: Flex Column -->
 			<div class="flex flex-col md:flex-row items-end w-full gap-12 md:gap-0">
-				<!-- Left: English (70%) -->
-				<div class="w-full md:w-[70%] flex flex-col gap-1 md:gap-1">
-					{#each heroLines as line, i}
+				<!-- Left: Main Text (Dynamic Typing) -->
+				<div class="w-full md:w-[70%] flex flex-col gap-1 md:gap-1" style="min-height: 25rem;">
+					{#each heroTextEN as line, i}
 						<div class="overflow-hidden" style="min-height: clamp(2rem, 6vw, 4.5rem);">
 							<span
 								class="block text-black leading-[1.1] tracking-tighter break-words antialiased"
@@ -247,21 +253,20 @@
 					{/each}
 				</div>
 
-				<!-- Right: Japanese (30% - Bottom Aligned) -->
+				<!-- Right: Japanese Text Fade-in -->
 				<div class="w-full md:w-[30%] flex flex-col gap-4 md:gap-5 text-right pb-1 md:pb-2">
-					{#each heroLines as line, i}
-						<div class="flex justify-end" style="min-height: clamp(0.875rem, 1.1vw, 1.25rem);">
-							{#if showJapanese[i]}
-								<span
-									class="block text-[#555] whitespace-nowrap leading-loose"
-									style="font-family: 'Shippori Mincho', serif; letter-spacing: 0.1em; font-size: clamp(0.875rem, 1.1vw, 1.25rem); word-break: keep-all;"
-									in:fade={{ duration: 800 }}
-								>
-									{line.ja}
-								</span>
-							{/if}
-						</div>
-					{/each}
+					<div class="flex flex-col gap-2">
+						{#each heroTextJP as line, i}
+							<p
+								class="text-gray-500 font-medium tracking-wide transition-opacity duration-1000 ease-out"
+								class:opacity-0={!showJapaneseLines[i]}
+								class:opacity-100={showJapaneseLines[i]}
+								style="font-family: 'Zen Kaku Gothic New', sans-serif; font-size: clamp(1rem, 1.5vw, 1.25rem);"
+							>
+								{line}
+							</p>
+						{/each}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -282,7 +287,12 @@
 </div>
 
 <!-- Projects Section - Transparent Blend -->
-<div class="relative py-24 z-30 -mt-24 pt-48" use:reveal={{ threshold: 0.1 }}>
+<div
+	id="projects"
+	class="relative py-24 z-30 -mt-24 pt-48"
+	style="scroll-margin-top: 100px;"
+	use:reveal={{ threshold: 0.1 }}
+>
 	<div
 		class="absolute top-10 right-10 text-[12vw] font-bold text-gray-900 -z-10 select-none pointer-events-none leading-none tracking-tighter opacity-[0.03] text-right"
 		style="font-family: 'Inter', sans-serif;"
@@ -292,10 +302,19 @@
 
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
 		<div class="mb-12">
-			<h2 class="mb-4 text-4xl font-semibold tracking-tight md:text-5xl" style="color: #1A1A1A;">
-				みんなのプロジェクト
-			</h2>
-			<p class="text-lg" style="color: #6B6B6B;">部員たちが開発した作品をご紹介します。</p>
+			{#key language.current}
+				<div in:fade={{ duration: 300 }}>
+					<h2
+						class="mb-4 text-4xl font-semibold tracking-tight md:text-5xl"
+						style="color: #1A1A1A;"
+					>
+						{t.projects.title}
+					</h2>
+					<p class="text-lg" style="color: #6B6B6B;">
+						{t.projects.desc}
+					</p>
+				</div>
+			{/key}
 		</div>
 
 		<!-- Category Filter -->
@@ -334,20 +353,25 @@
 </div>
 
 <!-- News Section - Transparent Blend -->
-<div class="relative py-24 z-20 -mt-24 pt-48" use:reveal={{ threshold: 0.1 }}>
+<div
+	id="news"
+	class="relative py-24 z-20 -mt-24 pt-48"
+	style="scroll-margin-top: 100px;"
+	use:reveal={{ threshold: 0.1 }}
+>
 	<div
 		class="absolute top-20 left-10 text-[15vw] font-bold text-gray-900 -z-10 select-none pointer-events-none leading-none tracking-tighter opacity-[0.03]"
 		style="font-family: 'Inter', sans-serif;"
 	>
-		NEWS ROOM
+		{t.news.watermark}
 	</div>
 
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
 		<div class="mb-16">
 			<h2 class="mb-4 text-4xl font-semibold tracking-tight md:text-5xl" style="color: #1A1A1A;">
-				Latest News.
+				{t.news.title}
 			</h2>
-			<p class="text-lg" style="color: #6b6b6b;">テック部の最新情報と活動ログ。</p>
+			<p class="text-lg" style="color: #6b6b6b;">{t.news.desc}</p>
 		</div>
 
 		<div class="grid gap-8 md:grid-cols-2">
@@ -426,7 +450,7 @@
 							class="mt-auto flex items-center gap-2 text-sm font-medium"
 							style="color: #3b82f6;"
 						>
-							Read more
+							{t.news.readMore}
 							<ArrowRight
 								class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
 							/>
@@ -441,7 +465,7 @@
 				<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-pink-50">
 					<span class="text-3xl">📰</span>
 				</div>
-				<p class="text-lg" style="color: #6B6B6B;">ニュースはまだありません</p>
+				<p class="text-lg" style="color: #6B6B6B;">{t.news.empty}</p>
 			</div>
 		{:else}
 			<div class="mt-16 text-center">
@@ -451,7 +475,7 @@
 					rel="noopener noreferrer"
 					class="see-all-link group inline-flex items-center gap-2 rounded-full px-8 py-4 font-medium transition-all duration-300 hover:-translate-y-1"
 				>
-					すべての記事を見る
+					{t.news.seeAll}
 					<ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-1" />
 				</a>
 			</div>
@@ -460,31 +484,35 @@
 </div>
 
 <!-- Schedule Section -->
-<div class="relative py-24 z-10 -mt-24 pt-48 bg-transparent">
+<div
+	id="schedule"
+	class="relative py-24 z-10 -mt-24 pt-48 bg-transparent"
+	style="scroll-margin-top: 100px;"
+>
 	<ScheduleSection scheduleData={data.scheduleData} pastEventsByMonth={data.pastEventsByMonth} />
 </div>
 
 {#if selectedNews}
 	<!-- Modal Overlay -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 cursor-default"
 		transition:fade={{ duration: 200 }}
 		onclick={closeNews}
-		onkeydown={(e) => e.key === 'Escape' && closeNews()}
-		tabindex="-1"
-		role="dialog"
+		onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && closeNews()}
+		role="button"
+		tabindex="0"
 		aria-modal="true"
 	>
 		<div class="absolute inset-0 bg-black/30 backdrop-blur-md"></div>
 
 		<!-- Modal Content -->
 		<div
-			class="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl"
+			class="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl cursor-auto"
 			transition:fly={{ y: 50, duration: 400, easing: cubicOut }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 			role="document"
-			tabindex="0"
+			tabindex="-1"
 		>
 			<!-- Close Button (Fixed within modal) -->
 			<button
@@ -580,7 +608,8 @@
 							rel="noopener noreferrer"
 							class="inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 font-medium text-white transition-transform hover:scale-105"
 						>
-							Notionで開く <ArrowUpRight class="h-4 w-4" />
+							{t.news.openNotion}
+							<ArrowUpRight class="h-4 w-4" />
 						</a>
 					</div>
 				</div>
