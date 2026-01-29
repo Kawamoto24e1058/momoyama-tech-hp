@@ -1,7 +1,7 @@
 <script>
 	import { language } from '$lib/stores/language.svelte.js';
 	import { translations } from '$lib/i18n/translations.js';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { cubicOut, quintOut } from 'svelte/easing';
@@ -127,7 +127,7 @@
 
 	/** @type {any[]} */
 	let displayProjects = $state([]);
-	let displayScheduleData = $state(data.scheduleData);
+	let displayScheduleData = $state(untrack(() => data.scheduleData));
 
 	const filteredProjects = $derived(
 		selectedCategory === 'All'
